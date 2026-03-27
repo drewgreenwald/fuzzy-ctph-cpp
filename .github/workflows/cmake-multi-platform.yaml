@@ -23,38 +23,31 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libtbb-dev ninja-build
+        sudo apt-get install -y libtbb-dev ninja-build build-essential
 
-    - name: Clone vcpkg
+    - name: Setup vcpkg
       shell: bash
       run: |
         git clone https://github.com/microsoft/vcpkg.git
-        # Use the correct bootstrap for the OS
         if [[ "${{ runner.os }}" == "Windows" ]]; then
           ./vcpkg/bootstrap-vcpkg.bat
+          ./vcpkg/vcpkg.exe install argparse:x64-windows-static
         else
           ./vcpkg/bootstrap-vcpkg.sh
+          ./vcpkg/vcpkg install argparse
         fi
 
     - name: Configure CMake
       shell: bash
-      run: >
-        cmake -B build -S .
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
-        -DVCPKG_MANIFEST_MODE=ON
+      run: |
+        # Use quotes around the path to prevent backslash issues on Windows
+        cmake -B build -S . \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+          -DVCPKG_TARGET_TRIPLET=${{ runner.os == 'Windows' && 'x64-windows-static' || 'x64-linux' }}
 
     - name: Build
       run: cmake --build build --config ${{ matrix.build_type }}
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.os }}-binaries
-        path: |
-          build/fuzzy-ctph
-          build/Release/fuzzy-ctph.exe
-        if-no-files-found: warn
 
   release:
     needs: build

@@ -1,8 +1,0 @@
-{
-  "name": "ctph-fuzzy",
-  "version": "1.0.0",
-  "description": "Clean-room C++ implementation of CTPH fuzzy hashing",
-  "dependencies": [
-    "argparse"
-  ]
-}
