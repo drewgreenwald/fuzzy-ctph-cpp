@@ -3,7 +3,7 @@ name: CMake Multi-Platform Build
 on:
   push:
     branches: [ "main", "master" ]
-    tags: [ 'v*' ] # This ensures the workflow triggers when you push a tag
+    tags: [ 'v*' ]
   pull_request:
     branches: [ "main", "master" ]
 
@@ -21,12 +21,16 @@ jobs:
 
     - name: Install TBB (Linux only)
       if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y libtbb-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtbb-dev
 
+    # Use the official Microsoft vcpkg action
     - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
+      uses: microsoft/vcpkg-action@v1
       with:
-        vcpkgDirectory: ${{ github.workspace }}/vcpkg
+        pkgs: argparse
+        vcpkgGitCommitId: '8049926c8be40b973b1373e6d6b1d129705df82c'
 
     - name: Configure CMake
       run: >
@@ -63,7 +67,6 @@ jobs:
           files: |
             ./release-files/fuzzy-ctph.exe
             ./release-files/fuzzy-ctph
-          body: "Automated release of ctph-fuzzy"
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
