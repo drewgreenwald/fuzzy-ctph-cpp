@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="fuzzy-ctph/fuzzy-ctph.vcxproj" Id="868cbe13-119b-49f0-bdd9-6bd1ed5cab00" />
+</Solution>

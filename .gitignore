@@ -1,0 +1,38 @@
+# --- IDE and Build Systems ---
+.vs/
+out/
+build/
+bin/
+obj/
+x64/
+x86/
+ARM/
+Release/
+Debug/
+
+# --- Visual Studio Artifacts ---
+*.user
+*.aps
+*.pdb
+*.suo
+*.vstmp
+*.sln.docstates
+
+# --- vcpkg (Package Manager) ---
+# We don't check in the installed libraries, only the vcpkg.json
+vcpkg_installed/
+
+# --- Linux / Unix Artifacts ---
+*.o
+*.a
+*.so
+.cmake/
+CMakeCache.txt
+CMakeFiles/
+CMakeSettings.json
+Makefile
+cmake_install.cmake
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
