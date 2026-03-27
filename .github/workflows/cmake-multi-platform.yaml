@@ -26,15 +26,26 @@ jobs:
         sudo apt-get install -y libtbb-dev ninja-build
 
     - name: Clone vcpkg
+      shell: bash
       run: |
         git clone https://github.com/microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh || ./vcpkg/bootstrap-vcpkg.bat
+        # Use the correct bootstrap for the OS
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          ./vcpkg/bootstrap-vcpkg.bat
+        else
+          ./vcpkg/bootstrap-vcpkg.sh
+        fi
 
-    - name: Install argparse via vcpkg
+    - name: Install dependencies (Manifest Mode)
+      shell: bash
       run: |
-        ./vcpkg/vcpkg install argparse:x64-windows
-        ./vcpkg/vcpkg install argparse:x64-linux
-      if: always() # Continue even if one triplet fails for the wrong OS
+        # Just run install without package names. 
+        # vcpkg sees vcpkg.json and does the rest.
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          ./vcpkg/vcpkg.exe install --triplet x64-windows
+        else
+          ./vcpkg/vcpkg install --triplet x64-linux
+        fi
 
     - name: Configure CMake
       run: >
