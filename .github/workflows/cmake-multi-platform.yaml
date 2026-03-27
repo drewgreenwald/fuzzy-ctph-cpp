@@ -36,22 +36,13 @@ jobs:
           ./vcpkg/bootstrap-vcpkg.sh
         fi
 
-    - name: Install dependencies (Manifest Mode)
-      shell: bash
-      run: |
-        # Just run install without package names. 
-        # vcpkg sees vcpkg.json and does the rest.
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          ./vcpkg/vcpkg.exe install --triplet x64-windows
-        else
-          ./vcpkg/vcpkg install --triplet x64-linux
-        fi
-
     - name: Configure CMake
+      shell: bash
       run: >
         cmake -B build -S .
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        -DVCPKG_MANIFEST_MODE=ON
 
     - name: Build
       run: cmake --build build --config ${{ matrix.build_type }}
