@@ -67,10 +67,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          # This pattern looks inside all subfolders for these specific names
+          # The asterisk (*) helps find the files regardless of the middle folder name
           files: |
-            ./release-files/**/fuzzy-ctph.exe
-            ./release-files/**/fuzzy-ctph
+            release-files/**/*.exe
+            release-files/**/fuzzy-ctph
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
