@@ -52,6 +52,17 @@ jobs:
     - name: Build
       run: cmake --build build --config ${{ matrix.build_type }}
 
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}-binaries
+        # This tells GitHub to hunt through the entire build folder
+        path: |
+          build/**/fuzzy-ctph
+          build/**/fuzzy-ctph.exe
+        # This is the "Truth Serum": if the files aren't found, the build fails
+        if-no-files-found: error
+        
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
