@@ -3,67 +3,59 @@ name: CMake Multi-Platform Build
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ 'v*' ] # This ensures the workflow triggers when you push a tag
   pull_request:
     branches: [ "main", "master" ]
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
-      # Set fail-fast to false so if one OS fails, the other keeps going
       fail-fast: false
       matrix:
-        # Testing on the latest Windows and Ubuntu (Linux)
         os: [ubuntu-latest, windows-latest]
         build_type: [Release]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Get modern CMake
-      uses: lukka/get-cmake@latest
+    - name: Install TBB (Linux only)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libtbb-dev
 
-    # This step handles vcpkg and caches the installed libraries
-    - name: Run vcpkg and CMake
-      uses: lukka/run-cmake@v10
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
       with:
-        configurePreset: 'default' # We'll define this below or use manual args
-        # If you don't use presets, we pass the toolchain manually:
-        cmakeArgs: >
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
-        
-    - name: Build
-      run: cmake --build --preset ninja-release || cmake --build . --config ${{ matrix.build_type }}
+        vcpkgDirectory: ${{ github.workspace }}/vcpkg
 
-    - name: Test Execution
-      shell: bash
-      run: |
-        # Just a quick smoke test to see if the binary even runs
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          ./build/Release/fuzzy-ctph.exe --help
-        else
-          ./build/fuzzy-ctph --help
-        fi
-        
+    - name: Configure CMake
+      run: >
+        cmake -B build -S .
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}-binaries
+        path: |
+          build/fuzzy-ctph
+          build/Release/fuzzy-ctph.exe
+        if-no-files-found: warn
 
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download Windows Artifact
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-binary
           path: ./release-files
-
-      - name: Download Linux Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-binary
-          path: ./release-files
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -72,5 +64,6 @@ jobs:
             ./release-files/fuzzy-ctph.exe
             ./release-files/fuzzy-ctph
           body: "Automated release of ctph-fuzzy"
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
