@@ -31,6 +31,31 @@
 #include <vector>
 #include <filesystem>
 
+// ---------------------------------------------------------------------------
+// DLL export/import macro
+//
+// When building the shared library, define CTPH_EXPORTS on the compiler
+// command line (CMake's GenerateExportHeader does this automatically via
+// the DEFINE_SYMBOL property).  Consumers who link the DLL get the import
+// decoration automatically because CTPH_EXPORTS will NOT be defined for them.
+//
+// When linking the static library, define CTPH_STATIC_DEFINE to suppress
+// all decorations.
+// ---------------------------------------------------------------------------
+#if defined(CTPH_STATIC_DEFINE)
+#  define CTPH_API
+#elif defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(CTPH_EXPORTS)
+#    define CTPH_API __declspec(dllexport)
+#  else
+#    define CTPH_API __declspec(dllimport)
+#  endif
+#elif defined(__GNUC__) || defined(__clang__)
+#  define CTPH_API __attribute__((visibility("default")))
+#else
+#  define CTPH_API
+#endif
+
 namespace ctph {
 
 // Minimum and maximum block sizes used in the piecewise hashing
@@ -60,7 +85,7 @@ static constexpr uint32_t FNV_INIT   = 0x28021967u;
  * Uses a window-based Adler-style accumulator identical in spirit to
  * the one described in Tridgell (2002).
  */
-struct RollingState {
+struct CTPH_API RollingState {
     uint32_t h1 = 0;  // sum of bytes in window
     uint32_t h2 = 0;  // weighted positional sum
     uint32_t h3 = 0;  // shift register (LFSR-style)
@@ -83,19 +108,19 @@ struct RollingState {
  *
  * Returns an empty string on failure.
  */
-std::string hash_buffer(const uint8_t* data, size_t length);
+CTPH_API std::string hash_buffer(const uint8_t* data, size_t length);
 
 /**
  * Compute a CTPH fuzzy hash of the file at the given path.
  * Returns an empty string on failure (file not found, unreadable, etc.).
  */
-std::string hash_file(const std::filesystem::path& path);
+CTPH_API std::string hash_file(const std::filesystem::path& path);
 
 /**
  * Compare two fuzzy hashes and return a similarity score in [0, 100].
  * 0 means completely dissimilar, 100 means identical.
  * Returns -1 if the hashes are malformed or incomparable.
  */
-int compare(const std::string& hash1, const std::string& hash2);
+CTPH_API int compare(const std::string& hash1, const std::string& hash2);
 
 } // namespace ctph

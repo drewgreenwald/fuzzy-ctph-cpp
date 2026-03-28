@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: write
-  
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -43,7 +43,6 @@ jobs:
     - name: Configure CMake
       shell: bash
       run: |
-        # Use quotes around the path to prevent backslash issues on Windows
         cmake -B build -S . \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
@@ -52,36 +51,90 @@ jobs:
     - name: Build
       run: cmake --build build --config ${{ matrix.build_type }}
 
-    - name: Upload Artifacts
+    # ------------------------------------------------------------------
+    # Collect all outputs into a flat staging directory so upload-artifact
+    # doesn't have to glob through deep multi-config subdirectories.
+    # ------------------------------------------------------------------
+    - name: Stage artifacts (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        mkdir -p staging
+        # CLI
+        cp build/fuzzy-ctph             staging/fuzzy-ctph-linux
+        # Static library
+        cp build/libctph.a              staging/libctph.a
+        # Shared library (versioned symlink target)
+        cp build/libctph.so.1.0.0       staging/libctph.so.1.0.0
+        # Also copy the unversioned .so for convenience
+        cp -P build/libctph.so          staging/libctph.so || true
+
+    - name: Stage artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path staging | Out-Null
+        $cfg = "${{ matrix.build_type }}"
+        # CMake multi-config generators (MSVC) put outputs in build/<Config>/
+        # Single-config generators (Ninja) put them directly in build/
+        $dirs = @("build\$cfg", "build")
+        foreach ($d in $dirs) {
+          # CLI
+          if (Test-Path "$d\fuzzy-ctph.exe") { Copy-Item "$d\fuzzy-ctph.exe" staging\ }
+          # Static import lib
+          if (Test-Path "$d\ctph.lib")       { Copy-Item "$d\ctph.lib"       staging\ }
+          # DLL
+          if (Test-Path "$d\ctph.dll")       { Copy-Item "$d\ctph.dll"       staging\ }
+        }
+
+    - name: Upload staged artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-binaries
-        # This tells GitHub to hunt through the entire build folder
-        path: |
-          build/**/fuzzy-ctph
-          build/**/fuzzy-ctph.exe
-        # This is the "Truth Serum": if the files aren't found, the build fails
+        path: staging/
         if-no-files-found: error
-        
+
+  # -------------------------------------------------------------------------
+  # Release job: runs only on version tags; downloads all platform artifacts
+  # and attaches them to a GitHub Release.
+  # -------------------------------------------------------------------------
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Crucial for the 403 error
+      contents: write
+
     steps:
-      - name: Download All Artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./release-files
 
+      # Flatten and rename so the release page is easy to navigate
+      - name: Prepare release assets
+        run: |
+          mkdir -p assets
+
+          # Windows
+          src="release-files/windows-latest-binaries"
+          [ -f "$src/fuzzy-ctph.exe" ] && cp "$src/fuzzy-ctph.exe" assets/fuzzy-ctph-windows-x64.exe
+          [ -f "$src/ctph.lib"       ] && cp "$src/ctph.lib"        assets/ctph-windows-x64-static.lib
+          [ -f "$src/ctph.dll"       ] && cp "$src/ctph.dll"        assets/ctph-windows-x64.dll
+
+          # Linux
+          src="release-files/ubuntu-latest-binaries"
+          [ -f "$src/fuzzy-ctph-linux"    ] && cp "$src/fuzzy-ctph-linux"    assets/fuzzy-ctph-linux-x64
+          [ -f "$src/libctph.a"           ] && cp "$src/libctph.a"           assets/libctph-linux-x64.a
+          [ -f "$src/libctph.so.1.0.0"    ] && cp "$src/libctph.so.1.0.0"    assets/libctph-linux-x64.so.1.0.0
+          [ -f "$src/libctph.so"          ] && cp "$src/libctph.so"          assets/libctph-linux-x64.so || true
+
+          echo "=== Release assets ==="
+          ls -lh assets/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          # The asterisk (*) helps find the files regardless of the middle folder name
-          files: |
-            release-files/**/*.exe
-            release-files/**/fuzzy-ctph
+          files: assets/*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
