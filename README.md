@@ -66,6 +66,8 @@ cmake --build build --config Release
 - `--threshold N` — only group files with ≥ N% similarity (default: 50)
 - `--csv output.csv` — also write results to a CSV with columns `file,cluster_id,hash`
 
+Linux Users: If you get a "shared library" error, install the TBB library using:
+sudo apt update && sudo apt install libtbb-dev
 
 ### Library API
 
